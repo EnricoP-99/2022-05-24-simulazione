@@ -7,6 +7,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+
+import it.polito.tdp.itunes.model.Adiacenze;
 import it.polito.tdp.itunes.model.Album;
 import it.polito.tdp.itunes.model.Artist;
 import it.polito.tdp.itunes.model.Genre;
@@ -76,9 +79,8 @@ public class ItunesDAO {
 		return result;
 	}
 	
-	public List<Track> getAllTracks(){
+	public void getAllTracks(Map<Integer,Track> idMap){
 		final String sql = "SELECT * FROM Track";
-		List<Track> result = new ArrayList<Track>();
 		
 		try {
 			Connection conn = DBConnect.getConnection();
@@ -86,9 +88,10 @@ public class ItunesDAO {
 			ResultSet res = st.executeQuery();
 
 			while (res.next()) {
-				result.add(new Track(res.getInt("TrackId"), res.getString("Name"), 
+				Track t = new Track(res.getInt("TrackId"), res.getString("Name"), 
 						res.getString("Composer"), res.getInt("Milliseconds"), 
-						res.getInt("Bytes"),res.getDouble("UnitPrice")));
+						res.getInt("Bytes"),res.getDouble("UnitPrice"));
+				idMap.put(t.getTrackId(), t);
 			
 			}
 			conn.close();
@@ -96,7 +99,7 @@ public class ItunesDAO {
 			e.printStackTrace();
 			throw new RuntimeException("SQL Error");
 		}
-		return result;
+		
 	}
 	
 	public List<Genre> getAllGenres(){
@@ -139,6 +142,87 @@ public class ItunesDAO {
 		return result;
 	}
 
+	public List<Track> getVertici(Genre g){
+		final String sql = "SELECT * "
+				+ "FROM Track "
+				+ "WHERE GenreId = ? ";
+		List<Track> result = new LinkedList<Track>();
+		
+		try {
+			Connection conn = DBConnect.getConnection();
+			PreparedStatement st = conn.prepareStatement(sql);
+			st.setInt(1, g.getGenreId());
+			ResultSet res = st.executeQuery();
+
+			while (res.next()) {
+				
+				result.add(new Track(res.getInt("TrackId"), res.getString("Name"), 
+						res.getString("Composer"), res.getInt("Milliseconds"), 
+						res.getInt("Bytes"),res.getDouble("UnitPrice")));
+				
+			}
+			conn.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException("SQL Error");
+		}
+		return result;
+	}
 	
+	
+	public List<Adiacenze> getAdiacenze(Genre g, Map<Integer,Track> idMap){
+		final String sql = "SELECT T1.TrackId as t1, T2.TrackId as t2, ABS(T1.Milliseconds-T2.Milliseconds) as peso "
+				+ "FROM Track T1, Track T2 "
+				+ "WHERE T1.GenreId = ? "
+				+ "AND T1.GenreId = T2.GenreId "
+				+ "AND T1.MediaTypeId = T2.MediaTypeId "
+				+ "AND T1.TrackId>T2.TrackId ";
+		List<Adiacenze> result = new LinkedList<Adiacenze>();
+		
+		try {
+			Connection conn = DBConnect.getConnection();
+			PreparedStatement st = conn.prepareStatement(sql);
+			st.setInt(1, g.getGenreId());
+			ResultSet res = st.executeQuery();
+
+			while (res.next()) {
+				
+				result.add(new Adiacenze(idMap.get(res.getInt("t1")), idMap.get(res.getInt("t2")), res.getDouble("peso")));
+				
+			}
+			conn.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException("SQL Error");
+		}
+		return result;
+	}
+	
+	public int getDurataMax(Genre g, Map<Integer,Track> idMap){
+		final String sql = "SELECT MAX(peso) as maxMedia "
+				+ "FROM(SELECT T1.TrackId as t1, T2.TrackId as t2, ABS(T1.Milliseconds-T2.Milliseconds) as peso "
+				+ "FROM Track T1, Track T2 "
+				+ "WHERE T1.GenreId = ? "
+				+ "AND T1.GenreId = T2.GenreId "
+				+ "AND T1.MediaTypeId = T2.MediaTypeId "
+				+ "AND T1.TrackId>T2.TrackId) as MEDIA ";
+		
+		try {
+			Connection conn = DBConnect.getConnection();
+			PreparedStatement st = conn.prepareStatement(sql);
+			st.setInt(1, g.getGenreId());
+			ResultSet res = st.executeQuery();
+			res.next();
+				
+			int result = res.getInt("maxMedia");
+				
+			conn.close();
+			return result;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			throw new RuntimeException("SQL Error");
+		}
+		
+	}
 	
 }
